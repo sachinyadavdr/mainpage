@@ -96,7 +96,8 @@ button {
 
 .brand-name {
     letter-spacing: .11em;
-    font-size: 20px
+    font-size: 20px;
+    color: #eaf1f5;
 }
 
 .brand-name strong {
