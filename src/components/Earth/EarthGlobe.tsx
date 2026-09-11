@@ -1,34 +1,68 @@
 import { Html, OrbitControls, PerspectiveCamera, Stars } from '@react-three/drei'
 import { Canvas, useFrame, useLoader } from '@react-three/fiber'
-import { Suspense, useEffect, useRef } from 'react'
-import { AdditiveBlending, BufferGeometry, Color, MathUtils, RepeatWrapping, SRGBColorSpace, TextureLoader, Vector3 } from 'three'
-import type { LineSegments, Mesh, PerspectiveCamera as PerspectiveCameraType } from 'three'
+import { forwardRef, Suspense, useEffect, useImperativeHandle, useRef } from 'react'
+import { AdditiveBlending, BufferGeometry, Color, Matrix4, Quaternion, RepeatWrapping, SRGBColorSpace, TextureLoader, Vector3 } from 'three'
+import type { Group, LineSegments, Mesh, PerspectiveCamera as PerspectiveCameraType } from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 
 const EARTH_RADIUS = 1.5
 const EARTH_TEXTURE = '/assets/earth-daymap-2048.jpg'
 
 const KANPUR = { latitude: 26.4499, longitude: 80.3319 }
-const TEXTURE_LONGITUDE_OFFSET = 0
-const LOCATION_LONGITUDE_OFFSET = -55
-const KANPUR_FACING_ROTATION = -MathUtils.degToRad(KANPUR.longitude + TEXTURE_LONGITUDE_OFFSET)
+const DEFAULT_FOCUS_DURATION = 900
 
-function latLongToPoint(latitude: number, longitude: number, radius: number) {
+export function latLngToVector3(latitude: number, longitude: number, radius: number) {
     const latitudeRadians = (latitude * Math.PI) / 180
-    const longitudeRadians = (longitude * Math.PI) / 180
+    const longitudeRadians = (-longitude * Math.PI) / 180
     return new Vector3(
-        radius * Math.cos(latitudeRadians) * Math.sin(longitudeRadians),
-        radius * Math.sin(latitudeRadians),
         radius * Math.cos(latitudeRadians) * Math.cos(longitudeRadians),
+        radius * Math.sin(latitudeRadians),
+        radius * Math.cos(latitudeRadians) * Math.sin(longitudeRadians),
     )
 }
 
-function LocationMarker() {
+export interface GlobeLocation {
+    latitude: number
+    longitude: number
+    label?: string
+}
+
+export interface EarthGlobeHandle {
+    focusLocation: (latitude: number, longitude: number, duration?: number) => void
+}
+
+function locationRotation(latitude: number, longitude: number) {
+    const point = latLngToVector3(latitude, longitude, 1).normalize()
+    const latitudeRadians = (latitude * Math.PI) / 180
+    const longitudeRadians = (-longitude * Math.PI) / 180
+    const north = new Vector3(
+        -Math.sin(latitudeRadians) * Math.cos(longitudeRadians),
+        Math.cos(latitudeRadians),
+        -Math.sin(latitudeRadians) * Math.sin(longitudeRadians),
+    ).normalize()
+    const right = north.clone().cross(point).normalize()
+    return new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(right, north, point).invert())
+}
+
+export function focusLocation(group: Group, latitude: number, longitude: number, duration = DEFAULT_FOCUS_DURATION) {
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return
+    const target = locationRotation(latitude, longitude)
+    const start = group.quaternion.clone()
+    const startedAt = performance.now()
+    const animate = (now: number) => {
+        const progress = Math.min((now - startedAt) / Math.max(duration, 0), 1)
+        const eased = 1 - Math.pow(1 - progress, 3)
+        group.quaternion.copy(start).slerp(target, eased)
+        if (progress < 1) requestAnimationFrame(animate)
+    }
+    requestAnimationFrame(animate)
+}
+
+function LocationMarker({ location }: { location: GlobeLocation }) {
     const pulse = useRef<Mesh>(null)
     const leaderLine = useRef<LineSegments>(null)
-    const markerLongitude = KANPUR.longitude + LOCATION_LONGITUDE_OFFSET
-    const markerPoint = latLongToPoint(KANPUR.latitude, markerLongitude, EARTH_RADIUS + 0.045)
-    const labelPoint = latLongToPoint(KANPUR.latitude, markerLongitude, EARTH_RADIUS + 0.32)
+    const markerPoint = latLngToVector3(location.latitude, location.longitude, EARTH_RADIUS + 0.045)
+    const labelPoint = latLngToVector3(location.latitude, location.longitude, EARTH_RADIUS + 0.32)
     const leaderGeometry = useRef(new BufferGeometry().setFromPoints([markerPoint, labelPoint])).current
 
     useFrame(({ clock }) => {
@@ -61,32 +95,37 @@ function LocationMarker() {
             <lineBasicMaterial color="#ff4054" transparent opacity={0.96} linewidth={2} />
         </lineSegments>
         <Html position={labelPoint} center={false} distanceFactor={16} zIndexRange={[5, 10]}>
-            <div className="earth-html-label"><span className="pin-pulse" /><div><strong>Kanpur, Uttar Pradesh</strong><small>26.4499° N / 80.3319° E</small></div></div>
+            <div className="earth-html-label"><span className="pin-pulse" /><div><strong>{location.label ?? 'Selected location'}</strong><small>{location.latitude.toFixed(4)}° / {location.longitude.toFixed(4)}°</small></div></div>
         </Html>
     </group>
 }
 
-function EarthScene() {
+function EarthScene({ location, groupRef }: { location: GlobeLocation; groupRef: React.RefObject<Group | null> }) {
     const earthMap = useLoader(TextureLoader, EARTH_TEXTURE)
     useEffect(() => {
         earthMap.colorSpace = SRGBColorSpace
         earthMap.anisotropy = 8
         earthMap.wrapS = RepeatWrapping
-        earthMap.offset.x = 0.39
+        earthMap.offset.x = 0
         earthMap.needsUpdate = true
     }, [earthMap])
+
+    useEffect(() => {
+        if (groupRef.current) focusLocation(groupRef.current, location.latitude, location.longitude)
+    }, [groupRef, location.latitude, location.longitude])
 
     return <>
         <ambientLight intensity={0.72} />
         <hemisphereLight args={['#d8f5ff', '#0b2340', 0.62]} />
         <directionalLight position={[4, 2, 5]} intensity={2.1} color="#d9f4ff" />
         <directionalLight position={[-4, -1, -3]} intensity={0.42} color="#3c83ff" />
-        <group rotation={[0, KANPUR_FACING_ROTATION, 0]}>
+        <group ref={groupRef}>
             <mesh>
                 <sphereGeometry args={[EARTH_RADIUS, 96, 96]} />
                 <meshBasicMaterial map={earthMap} color={new Color('#ffffff')} />
+                <LocationMarker location={location} />
             </mesh>
-            <LocationMarker />
+            
         </group>
     </>
 }
@@ -98,9 +137,24 @@ function resetCamera(camera: PerspectiveCameraType, controls: OrbitControlsImpl)
     controls.update()
 }
 
-export function EarthGlobe() {
+export const EarthGlobe = forwardRef<EarthGlobeHandle, { location?: GlobeLocation }>(function EarthGlobe({ location = KANPUR }, ref) {
     const camera = useRef<PerspectiveCameraType>(null)
     const controls = useRef<OrbitControlsImpl>(null)
+    const earthGroup = useRef<Group>(null)
+
+    useEffect(() => {
+        if (camera.current) camera.current.up.set(0, 1, 0)
+        if (controls.current) {
+            controls.current.target.set(0, 0, 0)
+            controls.current.update()
+        }
+    }, [])
+
+    useImperativeHandle(ref, () => ({
+        focusLocation: (latitude, longitude, duration) => {
+            if (earthGroup.current) focusLocation(earthGroup.current, latitude, longitude, duration)
+        },
+    }), [])
 
     const changeZoom = (amount: number) => {
         if (!camera.current || !controls.current) return
@@ -116,7 +170,7 @@ export function EarthGlobe() {
         }}>
             <PerspectiveCamera ref={camera} makeDefault position={[0, 0.15, 4.05]} fov={40} near={0.1} far={100} />
             <Stars radius={70} depth={24} count={1500} factor={2.2} saturation={0.32} fade speed={0.2} />
-            <Suspense fallback={null}><EarthScene /></Suspense>
+            <Suspense fallback={null}><EarthScene location={location} groupRef={earthGroup} /></Suspense>
             <OrbitControls ref={controls} enablePan={false} enableDamping dampingFactor={0.08} autoRotate={false} autoRotateSpeed={0.28} minDistance={3} maxDistance={5.5} touches={{ ONE: 1, TWO: 2 }} />
         </Canvas>
         <div className="earth-controls" aria-label="Earth controls">
@@ -126,4 +180,4 @@ export function EarthGlobe() {
         </div>
         <div className="earth-compass" aria-label="Compass orientation"><span>N</span></div>
     </div>
-}
+})
