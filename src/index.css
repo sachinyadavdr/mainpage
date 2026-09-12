@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
-/*  */
+
 
 * {
     box-sizing: border-box
@@ -32,7 +32,6 @@ button {
 .topbar {
     height: 78px;
     padding: 0 30px;
-    margin-left: 242px;
 
     display: flex;
     align-items: center;
@@ -346,7 +345,7 @@ button {
 }
 
 .main-content {
-    margin-left: 242px;
+
     max-width: 1600px;
     padding: 38px 38px 20px
 }
@@ -1341,10 +1340,6 @@ footer b {
 }
 
 @media(max-width:1200px) {
-    .topbar {
-        margin-left: 70px
-    }
-
     .sidebar {
         width: 70px
     }
@@ -1363,10 +1358,6 @@ footer b {
     .nav-item {
         justify-content: center;
         padding-inline: 0
-    }
-
-    .main-content {
-        margin-left: 70px
     }
 
     .dashboard-grid {
