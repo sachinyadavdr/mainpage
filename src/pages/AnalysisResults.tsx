@@ -22,7 +22,7 @@ export function AnalysisResults() {
             <div className="dashboard-grid"><AIAnswerCard />
                 <FeatureDetectionCard /><section className="panel earth-card">
                     <div className="panel-title-row"><div>
-                        <span className="eyebrow">ORBITAL CONTEXT</span><h2>3D Earth View <span>& Location</span>
+                        <span className="eyebrow">SPATIAL ANCHOR</span><h2>Interactive Globe <span>& Coordinates</span>
                         </h2></div><button className="reset-button" aria-label="Reset globe">
                             <RotateCcw size={14} /></button>
                     </div><EarthGlobe />

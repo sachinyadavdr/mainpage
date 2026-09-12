@@ -5,8 +5,8 @@ import { StatisticsCards } from './StatisticsCards'
 
 export function FeatureDetectionCard() {
     return <section className="panel feature-card"><div className="panel-title-row"><div>
-        <span className="eyebrow">LAND COVER ANALYSIS</span>
-        <h2>Detected Features <span>(Highlighted)</span>
+        <span className="eyebrow">TERRAIN & SURFACE METRICS</span>
+        <h2>Active Feature Overlay <span>(Highlighted)</span>
         </h2>
     </div>
         <button className="icon-button" aria-label="Expand feature detection">

@@ -7,7 +7,7 @@ const icons = { grid: Grid2X2, leaf: Leaf, sprout: Sprout, waves: Waves }
 export function AIAnswerCard() {
     return <section className="panel ai-card"><div className="panel-title-row"><div>
 
-        <span className="eyebrow">MODEL OUTPUT</span><h2>AI Answer</h2>
+        <span className="eyebrow">BHOODRISHTI AI</span><h2>ANALYSIS RESULT</h2>
     </div><span className="confidence">
             <CheckCircle2 size={14} /> Confidence: 92%</span>
     </div><p className="answer-intro">The satellite image shows a rapidly evolving peri-urban landscape where structured development meets productive agricultural land.</p>
